@@ -31,13 +31,11 @@ icon.addEventListener("click", function (e) {
     menu_active = true;
     header.style.overflow = "visible";
     icon.classList.add("active-icon");
-    ul_links.style.display = "block";
     ul_links.classList.add("move-to-left");
   } else {
     menu_active = false;
     header.style.overflow = "hidden";
     icon.classList.remove("active-icon");
-    ul_links.style.display = "none";
     ul_links.classList.remove("move-to-left");
   }
 });
@@ -56,7 +54,6 @@ document.addEventListener("click", (e) => {
       menu_active = false;
       header.style.overflow = "hidden";
       icon.classList.remove("active-icon");
-      ul_links.style.display = "none";
       ul_links.classList.remove("move-to-left");
     }
   }
@@ -67,7 +64,6 @@ document.onkeyup = function (e) {
     menu_active = false;
     header.style.overflow = "hidden";
     icon.classList.remove("active-icon");
-    ul_links.style.display = "none";
     ul_links.classList.remove("move-to-left");
   } else if (e.key === "ArrowLeft") {
     next_action();
@@ -130,20 +126,34 @@ function loadProgress() {
   return {};
 }
 
-function saveProgress(azkarIndex, zikrIndex) {
+function saveProgress(azkarIndex, zikrIndex, remainingCount) {
   const key = getProgressKey();
   let progress = loadProgress();
   if (!progress[azkarIndex]) {
     progress[azkarIndex] = {};
   }
-  progress[azkarIndex][zikrIndex] = true;
+  progress[azkarIndex][zikrIndex] = remainingCount;
   localStorage.setItem(key, JSON.stringify(progress));
+}
+
+function getZakrProgress(azkarIndex, zikrIndex, defaultCount) {
+  let progress = loadProgress();
+  if (progress[azkarIndex] && progress[azkarIndex][zikrIndex] !== undefined) {
+    return progress[azkarIndex][zikrIndex];
+  }
+  return defaultCount;
 }
 
 function isZakrDone(azkarIndex, zikrIndex) {
   let progress = loadProgress();
-  return progress[azkarIndex] && progress[azkarIndex][zikrIndex] === true;
+  // If we stored true from the old version, consider it 0
+  if (progress[azkarIndex] && progress[azkarIndex][zikrIndex] === true) return true;
+  return progress[azkarIndex] && progress[azkarIndex][zikrIndex] === 0;
 }
+// Sort all data by count ascending
+[day_data, night_data, azkat_salah, tashahd].forEach((arr) => {
+  arr.sort((a, b) => a.count - b.count);
+});
 
 // Select initial data based on time of day
 currentAzkarIndex = isNightTime ? 1 : 0;
@@ -164,7 +174,7 @@ function renderZakr() {
     counter_button.innerHTML = "✔";
     times.innerHTML = "";
   } else {
-    counter_button.innerHTML = data[counter_track]['count'];
+    counter_button.innerHTML = getZakrProgress(currentAzkarIndex, counter_track, data[counter_track]['count']);
     times.innerHTML = data[counter_track]['text_count'];
   }
 }
@@ -223,12 +233,11 @@ function count_action() {
   }
 
   if (counter_button.innerHTML == 1) {
-    saveProgress(currentAzkarIndex, counter_track);
+    saveProgress(currentAzkarIndex, counter_track, 0);
     counter_button.innerHTML = "✔";
     times.innerHTML = "";
-
-    // Automatically go to next after a short delay, or require another click?
-    // Let's require another click to go next, or wait 300ms
+    
+    // Automatically go to next after a short delay
     setTimeout(() => {
       if (counter_track === data.length - 1) {
         main_text.innerHTML = "تم الانتهاء، تقبل الله منا ومنكم صالح الأعمال.";
@@ -236,8 +245,10 @@ function count_action() {
         next_action();
       }
     }, 300);
+    
   } else if (counter_button.innerHTML > 0) {
     counter_button.innerHTML--;
+    saveProgress(currentAzkarIndex, counter_track, parseInt(counter_button.innerHTML));
   }
 }
 
@@ -336,3 +347,49 @@ async function fetchAndApplyTimings(latitude, longitude) {
     console.error("Could not fetch prayer times", error);
   }
 }
+
+// History Modal Logic
+let show_history = document.getElementById("show_history");
+let history_modal = document.getElementById("history-modal");
+let close_modal = document.querySelector(".close-modal");
+let history_stats = document.getElementById("history-stats");
+
+function updateHistoryUI() {
+  const allData = [day_data, night_data, azkat_salah, tashahd];
+  history_stats.innerHTML = "";
+  
+  azkar_names.forEach((name, index) => {
+    let total = allData[index].length;
+    let doneCount = 0;
+    
+    for (let i = 0; i < total; i++) {
+      if (isZakrDone(index, i)) doneCount++;
+    }
+    
+    const div = document.createElement("div");
+    div.className = "stat-item";
+    div.innerHTML = `<span>${name}</span> <span><b style="color: var(--primary)">${doneCount}</b> / ${total}</span>`;
+    history_stats.appendChild(div);
+  });
+}
+
+show_history.addEventListener("click", () => {
+  // Close menu if open
+  menu_active = false;
+  header.style.overflow = "hidden";
+  icon.classList.remove("active-icon");
+  ul_links.classList.remove("move-to-left");
+  
+  updateHistoryUI();
+  history_modal.classList.add("show");
+});
+
+close_modal.addEventListener("click", () => {
+  history_modal.classList.remove("show");
+});
+
+window.addEventListener("click", (e) => {
+  if (e.target == history_modal) {
+    history_modal.classList.remove("show");
+  }
+});
