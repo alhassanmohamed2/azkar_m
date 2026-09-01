@@ -118,34 +118,53 @@ function loadProgress() {
   return {};
 }
 
-function saveProgress(azkarIndex, zikrIndex, remainingCount) {
+function saveProgress(azkarIndex, zikrId, remainingCount) {
   const key = getProgressKey();
   let progress = loadProgress();
   if (!progress[azkarIndex]) {
     progress[azkarIndex] = {};
   }
-  progress[azkarIndex][zikrIndex] = remainingCount;
+  progress[azkarIndex][zikrId] = remainingCount;
   localStorage.setItem(key, JSON.stringify(progress));
 }
 
-function getZakrProgress(azkarIndex, zikrIndex, defaultCount) {
+function getZakrProgress(azkarIndex, zikrId, defaultCount) {
   let progress = loadProgress();
-  if (progress[azkarIndex] && progress[azkarIndex][zikrIndex] !== undefined) {
-    return progress[azkarIndex][zikrIndex];
+  if (progress[azkarIndex] && progress[azkarIndex][zikrId] !== undefined) {
+    return progress[azkarIndex][zikrId];
   }
   return defaultCount;
 }
 
-function isZakrDone(azkarIndex, zikrIndex) {
+function isZakrDone(azkarIndex, zikrId) {
   let progress = loadProgress();
-  // If we stored true from the old version, consider it 0
-  if (progress[azkarIndex] && progress[azkarIndex][zikrIndex] === true) return true;
-  return progress[azkarIndex] && progress[azkarIndex][zikrIndex] === 0;
+  if (progress[azkarIndex] && progress[azkarIndex][zikrId] === true) return true;
+  return progress[azkarIndex] && progress[azkarIndex][zikrId] === 0;
 }
-// Sort all data by count ascending
+
+// Give each item a stable ID based on original position
 [day_data, night_data, azkat_salah, tashahd].forEach((arr) => {
-  arr.sort((a, b) => a.count - b.count);
+  arr.forEach((item, index) => {
+    if (item.id === undefined) {
+      item.id = index;
+    }
+  });
 });
+
+function sortAzkarArray(arr, azkarIndex) {
+  arr.sort((a, b) => {
+    let aDone = isZakrDone(azkarIndex, a.id) ? 1 : 0;
+    let bDone = isZakrDone(azkarIndex, b.id) ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
+    return a.count - b.count;
+  });
+}
+
+// Sort all data
+sortAzkarArray(day_data, 0);
+sortAzkarArray(night_data, 1);
+sortAzkarArray(azkat_salah, 2);
+sortAzkarArray(tashahd, 3);
 
 // Select initial data based on time of day
 currentAzkarIndex = isNightTime ? 1 : 0;
@@ -162,11 +181,11 @@ function renderZakr() {
   ziker_number.innerHTML = counter_track + 1;
   ziker_name.innerHTML = azkar_names[currentAzkarIndex];
   
-  if (isZakrDone(currentAzkarIndex, counter_track)) {
+  if (isZakrDone(currentAzkarIndex, data[counter_track].id)) {
     counter_button.innerHTML = "✔";
     times.innerHTML = "";
   } else {
-    counter_button.innerHTML = getZakrProgress(currentAzkarIndex, counter_track, data[counter_track]['count']);
+    counter_button.innerHTML = getZakrProgress(currentAzkarIndex, data[counter_track].id, data[counter_track]['count']);
     times.innerHTML = data[counter_track]['text_count'];
   }
 }
@@ -214,8 +233,8 @@ counter_button.addEventListener("click", count_action);
 
 function count_action() {
   if (counter_button.innerHTML === "✔") {
-    // If finished, jump to next or show done message
-    if (counter_track === data.length - 1) {
+    let allDone = data.every(item => isZakrDone(currentAzkarIndex, item.id));
+    if (allDone) {
       main_text.innerHTML = "تم الانتهاء، تقبل الله منا ومنكم صالح الأعمال.";
       times.innerHTML = "";
     } else {
@@ -225,22 +244,32 @@ function count_action() {
   }
 
   if (counter_button.innerHTML == 1) {
-    saveProgress(currentAzkarIndex, counter_track, 0);
+    saveProgress(currentAzkarIndex, data[counter_track].id, 0);
     counter_button.innerHTML = "✔";
     times.innerHTML = "";
     
-    // Automatically go to next after a short delay
+    // Automatically re-sort and show next after a short delay
     setTimeout(() => {
-      if (counter_track === data.length - 1) {
+      sortAzkarArray(data, currentAzkarIndex);
+      
+      let allDone = data.every(item => isZakrDone(currentAzkarIndex, item.id));
+      if (allDone) {
         main_text.innerHTML = "تم الانتهاء، تقبل الله منا ومنكم صالح الأعمال.";
+        times.innerHTML = "";
+        counter_button.innerHTML = "✔";
       } else {
-        next_action();
+        if (counter_track >= data.length) counter_track = data.length - 1;
+        // If the item at current track is already done (meaning we hit the end of unfinished items)
+        if (isZakrDone(currentAzkarIndex, data[counter_track].id)) {
+          counter_track = 0; // jump back to the first unfinished item
+        }
+        renderZakr();
       }
     }, 300);
     
   } else if (counter_button.innerHTML > 0) {
     counter_button.innerHTML--;
-    saveProgress(currentAzkarIndex, counter_track, parseInt(counter_button.innerHTML));
+    saveProgress(currentAzkarIndex, data[counter_track].id, parseInt(counter_button.innerHTML));
   }
 }
 
