@@ -174,13 +174,14 @@ function renderProgressBar() {
   let html = "";
   let doneCount = 0;
   
-  // Create an array of original IDs to match the initial sequence
   let total = data.length;
-  for (let id = 0; id < total; id++) {
-    let isDone = isZakrDone(currentAzkarIndex, id);
+  // Loop through the sorted array sequentially so the progress bar perfectly matches the current reading sequence
+  for (let i = 0; i < total; i++) {
+    let item = data[i];
+    let isDone = isZakrDone(currentAzkarIndex, item.id);
     if (isDone) doneCount++;
     
-    let isActive = (data[counter_track].id === id);
+    let isActive = (counter_track === i);
     
     let className = "progress-segment";
     if (isDone) className += " done";
