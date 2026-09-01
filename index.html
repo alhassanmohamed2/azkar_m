@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 
 <head>
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Azkar</title>
-  <!-- FontAwosom -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>أذكار المسلم</title>
+  <!-- FontAwesome -->
   <link rel="stylesheet" href="css/all.min.css">
   <!-- CSS Code -->
   <link rel="stylesheet" href="css/main.css">
@@ -16,8 +16,7 @@
 <body>
   <!-- Start Header -->
   <header class="header">
-    <h1 id="ziker_name"></h1>
-    <div class="container">
+    <div class="header-controls">
       <div class="links">
         <span class="icon">
           <span></span>
@@ -31,7 +30,14 @@
           <li><a id="azkar_altshhd">صيغ التشهد </a></li>
         </ul>
       </div>
+      <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
+        <i class="fa-solid fa-moon"></i>
+      </button>
     </div>
+    
+    <h1 id="ziker_name"></h1>
+    
+    <div style="flex: 1;"></div>
   </header>
   <!-- End Header -->
 
@@ -39,25 +45,29 @@
     <div class="background">
       <div class="box">
         <div class="main-text"></div>
-
+        <!-- Note: We moved #times to footer or we can keep it here. Let's put #times here for better UX -->
+        <div id="times"></div>
       </div>
     </div>
   </main>
+  
   <footer>
-    <p>الذكر <span id="ziker_number"></span> من <span id="totle_ziker"></span></p>
-    <button id="next"><i class="fa-solid fa-caret-left"></i></button>
-    <button id="counter"></button>
-    <button id="back"><i class="fa-solid fa-caret-right"></i></button>
-    <p id="times"></p>
+    <p>الذكر <span id="ziker_number"></span> / <span id="totle_ziker"></span></p>
+    
+    <div class="footer-center">
+      <button id="back" aria-label="السابق"><i class="fa-solid fa-chevron-right"></i></button>
+      <button id="counter" aria-label="تسبيح"></button>
+      <button id="next" aria-label="التالي"><i class="fa-solid fa-chevron-left"></i></button>
+    </div>
+
+    <!-- Empty div for flex balance since #times moved inside the box -->
+    <p style="opacity: 0;">الذكر 00 / 00</p>
   </footer>
-
-
 
   <script src="js/all.min.js"></script>
   <!-- JS Code -->
   <script src="js/data.js"></script>
   <script src="js/main.js"></script>
 </body>
-
 
 </html>
