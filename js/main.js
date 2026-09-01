@@ -75,19 +75,19 @@ let isNightTime = currentHour >= 17 || currentHour < 5;
 let savedTheme = localStorage.getItem("theme");
 if (savedTheme === "dark" || (!savedTheme && isNightTime)) {
   document.body.classList.add("dark-mode");
-  themeIcon.classList.replace("fa-moon", "fa-sun");
+  themeIcon.className = "fa-solid fa-sun";
 } else {
   document.body.classList.remove("dark-mode");
-  themeIcon.classList.replace("fa-sun", "fa-moon");
+  themeIcon.className = "fa-solid fa-moon";
 }
 
 themeToggleBtn.addEventListener("click", () => {
   document.body.classList.toggle("dark-mode");
   if (document.body.classList.contains("dark-mode")) {
-    themeIcon.classList.replace("fa-moon", "fa-sun");
+    themeIcon.className = "fa-solid fa-sun";
     localStorage.setItem("theme", "dark");
   } else {
-    themeIcon.classList.replace("fa-sun", "fa-moon");
+    themeIcon.className = "fa-solid fa-moon";
     localStorage.setItem("theme", "light");
   }
 });
@@ -383,10 +383,10 @@ async function fetchAndApplyTimings(latitude, longitude) {
       if (!localStorage.getItem("theme")) {
         if (isNightTime) {
           document.body.classList.add("dark-mode");
-          themeIcon.classList.replace("fa-moon", "fa-sun");
+          themeIcon.className = "fa-solid fa-sun";
         } else {
           document.body.classList.remove("dark-mode");
-          themeIcon.classList.replace("fa-sun", "fa-moon");
+          themeIcon.className = "fa-solid fa-moon";
         }
       }
     }
