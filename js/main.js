@@ -40,17 +40,9 @@ icon.addEventListener("click", function (e) {
   }
 });
 
-ul_links.onclick = function (e) {
-  e.stopPropagation();
-};
-
-spans.onclick = function (e) {
-  e.stopPropagation();
-};
-
 document.addEventListener("click", (e) => {
-  if (e.target !== icon && e.target !== ul_links && e.target !== spans) {
-    if (icon.classList.contains("active-icon")) {
+  if (!icon.contains(e.target) && !ul_links.contains(e.target)) {
+    if (menu_active) {
       menu_active = false;
       header.style.overflow = "hidden";
       icon.classList.remove("active-icon");
