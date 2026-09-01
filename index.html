@@ -31,14 +31,15 @@
           <li><a id="show_history">السجل اليومي</a></li>
         </ul>
       </div>
-      <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
-        <i class="fa-solid fa-moon"></i>
-      </button>
     </div>
     
     <h1 id="ziker_name"></h1>
     
-    <div style="flex: 1;"></div>
+    <div class="header-side" style="flex: 1; display: flex; justify-content: flex-end;">
+      <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
+        <i class="fa-solid fa-moon"></i>
+      </button>
+    </div>
   </header>
   <!-- End Header -->
 
@@ -52,16 +53,19 @@
   </main>
   
   <footer>
-    <p>الذكر <span id="ziker_number"></span> / <span id="totle_ziker"></span></p>
+    <div class="progress-bar-container" id="progress-bar"></div>
     
-    <div class="footer-center">
-      <button id="back" aria-label="السابق"><i class="fa-solid fa-chevron-right"></i></button>
-      <button id="counter" aria-label="تسبيح"></button>
-      <button id="next" aria-label="التالي"><i class="fa-solid fa-chevron-left"></i></button>
-    </div>
+    <div class="footer-controls">
+      <p class="completion-text">الإنجاز: <span id="ziker_done_count">0</span> / <span id="totle_ziker">0</span></p>
+      
+      <div class="footer-center">
+        <button id="back" aria-label="السابق"><i class="fa-solid fa-chevron-right"></i></button>
+        <button id="counter" aria-label="تسبيح"></button>
+        <button id="next" aria-label="التالي"><i class="fa-solid fa-chevron-left"></i></button>
+      </div>
 
-    <!-- Empty div for flex balance since #times moved inside the box -->
-    <p style="opacity: 0;">الذكر 00 / 00</p>
+      <p class="completion-text" style="opacity: 0;">الإنجاز: 00 / 00</p>
+    </div>
   </footer>
 
   <!-- History Modal -->
