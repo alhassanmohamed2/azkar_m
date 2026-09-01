@@ -1,7 +1,7 @@
 let data;
 let main_text = document.querySelector(".main-text");
 let counter_button = document.querySelector("#counter");
-let ziker_number = document.querySelector("#ziker_number");
+let ziker_done_count = document.querySelector("#ziker_done_count");
 let totle_ziker = document.querySelector("#totle_ziker");
 let box = document.querySelector(".box");
 let counter_track = 0;
@@ -170,6 +170,29 @@ sortAzkarArray(tashahd, 3);
 currentAzkarIndex = isNightTime ? 1 : 0;
 data = isNightTime ? night_data : day_data;
 
+function renderProgressBar() {
+  let html = "";
+  let doneCount = 0;
+  
+  // Create an array of original IDs to match the initial sequence
+  let total = data.length;
+  for (let id = 0; id < total; id++) {
+    let isDone = isZakrDone(currentAzkarIndex, id);
+    if (isDone) doneCount++;
+    
+    let isActive = (data[counter_track].id === id);
+    
+    let className = "progress-segment";
+    if (isDone) className += " done";
+    if (isActive) className += " active";
+    
+    html += `<div class="${className}"></div>`;
+  }
+  
+  document.getElementById("progress-bar").innerHTML = html;
+  document.getElementById("ziker_done_count").innerText = doneCount;
+}
+
 function renderZakr() {
   // Reset animation
   main_text.classList.remove("fade-in");
@@ -178,7 +201,9 @@ function renderZakr() {
 
   main_text.innerHTML = data[counter_track]['zakr'];
   totle_ziker.innerHTML = data.length;
-  ziker_number.innerHTML = counter_track + 1;
+  // Render the new progress bar and update completed count
+  renderProgressBar();
+  
   ziker_name.innerHTML = azkar_names[currentAzkarIndex];
   
   if (isZakrDone(currentAzkarIndex, data[counter_track].id)) {
