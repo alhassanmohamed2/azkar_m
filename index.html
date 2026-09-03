@@ -41,7 +41,21 @@
     
     <h1 id="ziker_name"></h1>
     
-    <div class="header-side" style="flex: 1; display: flex; justify-content: flex-end;">
+    <div class="header-side" style="flex: 1; display: flex; justify-content: flex-end; gap: 15px; align-items: center;">
+      <div class="inapp-notifications">
+        <button id="inapp-bell" class="theme-toggle-btn" aria-label="Notifications">
+          <i class="fa-solid fa-bell"></i>
+          <span id="unread-badge" class="badge hidden"></span>
+        </button>
+        <div id="notifications-dropdown" class="notifications-dropdown hidden">
+          <div class="notifications-header">
+            <h3>الإشعارات</h3>
+            <button id="clear-notifications">مسح الكل</button>
+          </div>
+          <div id="notifications-list" class="notifications-list"></div>
+        </div>
+      </div>
+      
       <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
         <i class="fa-solid fa-moon"></i>
       </button>

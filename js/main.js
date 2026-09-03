@@ -485,6 +485,11 @@ if ('serviceWorker' in navigator) {
 }
 
 function sendNotification(title, body) {
+  // Add to In-App Notification Center
+  if (typeof addInAppNotification === "function") {
+    addInAppNotification(title, body);
+  }
+
   if ("Notification" in window && Notification.permission === "granted") {
     if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
       navigator.serviceWorker.ready.then(reg => {
@@ -596,3 +601,85 @@ fontSlider.addEventListener("input", (e) => {
   main_text.style.fontSize = newSize + "px";
   localStorage.setItem("azkar_font_size", newSize);
 });
+
+// In-App Notification Center Logic
+let inappBell = document.getElementById("inapp-bell");
+let notifDropdown = document.getElementById("notifications-dropdown");
+let notifList = document.getElementById("notifications-list");
+let unreadBadge = document.getElementById("unread-badge");
+let clearNotifBtn = document.getElementById("clear-notifications");
+
+function loadInAppNotifications() {
+  let notifs = localStorage.getItem("azkar_inapp_notifications");
+  return notifs ? JSON.parse(notifs) : [];
+}
+
+function saveInAppNotifications(notifs) {
+  localStorage.setItem("azkar_inapp_notifications", JSON.stringify(notifs));
+}
+
+function addInAppNotification(title, body) {
+  let notifs = loadInAppNotifications();
+  let timeStr = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+  notifs.unshift({ title, body, time: timeStr, read: false });
+  // Keep only last 20
+  if (notifs.length > 20) notifs.pop();
+  saveInAppNotifications(notifs);
+  renderInAppNotifications();
+}
+
+function renderInAppNotifications() {
+  let notifs = loadInAppNotifications();
+  notifList.innerHTML = "";
+  let unreadCount = 0;
+  
+  if (notifs.length === 0) {
+    notifList.innerHTML = '<div class="no-notifications">لا توجد إشعارات جديدة</div>';
+  } else {
+    notifs.forEach(n => {
+      if (!n.read) unreadCount++;
+      let div = document.createElement("div");
+      div.className = "notification-item";
+      div.innerHTML = `
+        <div class="notification-title">${n.title}</div>
+        <div class="notification-body">${n.body}</div>
+        <div class="notification-time">${n.time}</div>
+      `;
+      notifList.appendChild(div);
+    });
+  }
+  
+  if (unreadCount > 0) {
+    unreadBadge.classList.remove("hidden");
+    unreadBadge.innerText = unreadCount > 9 ? "+9" : unreadCount;
+  } else {
+    unreadBadge.classList.add("hidden");
+  }
+}
+
+inappBell.addEventListener("click", (e) => {
+  e.stopPropagation();
+  notifDropdown.classList.remove("hidden");
+  notifDropdown.classList.toggle("show");
+  
+  if (notifDropdown.classList.contains("show")) {
+    let notifs = loadInAppNotifications();
+    notifs.forEach(n => n.read = true);
+    saveInAppNotifications(notifs);
+    renderInAppNotifications();
+  }
+});
+
+clearNotifBtn.addEventListener("click", () => {
+  saveInAppNotifications([]);
+  renderInAppNotifications();
+});
+
+window.addEventListener("click", (e) => {
+  if (!notifDropdown.contains(e.target) && e.target !== inappBell) {
+    notifDropdown.classList.remove("show");
+  }
+});
+
+// Initialize rendering on load
+renderInAppNotifications();
