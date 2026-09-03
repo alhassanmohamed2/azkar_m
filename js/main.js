@@ -537,3 +537,23 @@ setInterval(() => {
     }
   }
 }, 30000);
+
+// Font Size Adjuster
+let fontSlider = document.getElementById("font-size-slider");
+
+// Load saved font size
+let savedFontSize = localStorage.getItem("azkar_font_size");
+if (savedFontSize) {
+  fontSlider.value = savedFontSize;
+  main_text.style.fontSize = savedFontSize + "px";
+} else {
+  // Default is 26px
+  main_text.style.fontSize = "26px";
+  fontSlider.value = "26";
+}
+
+fontSlider.addEventListener("input", (e) => {
+  let newSize = e.target.value;
+  main_text.style.fontSize = newSize + "px";
+  localStorage.setItem("azkar_font_size", newSize);
+});
