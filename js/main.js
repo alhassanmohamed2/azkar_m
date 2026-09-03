@@ -480,6 +480,29 @@ function updateNotifyUI() {
 }
 updateNotifyUI();
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed', err));
+}
+
+function sendNotification(title, body) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(title, { body: body, icon: "assets/images/favicon.png", vibrate: [200, 100, 200] });
+      });
+    } else {
+      new Notification(title, { body: body, icon: "assets/images/favicon.png" });
+    }
+  }
+}
+
+function isCategoryDone(azkarIndex, dataArray) {
+  for (let i = 0; i < dataArray.length; i++) {
+    if (!isZakrDone(azkarIndex, i)) return false;
+  }
+  return true;
+}
+
 notifyBtn.addEventListener("click", () => {
   if (!notificationsEnabled) {
     if ("Notification" in window) {
@@ -488,7 +511,7 @@ notifyBtn.addEventListener("click", () => {
           notificationsEnabled = true;
           localStorage.setItem("notificationsEnabled", "true");
           updateNotifyUI();
-          new Notification("تم التفعيل", { body: "سيتم تنبيهك بأوقات الأذكار طالما المتصفح مفتوح أو يعمل في الخلفية." });
+          sendNotification("تم التفعيل", "سيتم تنبيهك بأوقات الأذكار طالما المتصفح مفتوح أو يعمل في الخلفية.");
         } else {
           alert("الرجاء السماح بالإشعارات من إعدادات المتصفح.");
         }
@@ -519,19 +542,35 @@ setInterval(() => {
     pTime.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
     
     let diffMs = now.getTime() - pTime.getTime();
-    // Notify within the first minute of the prayer time
-    if (diffMs > 0 && diffMs < 60000) {
+    let diffMinutes = Math.floor(diffMs / 60000);
+    
+    // 1. Notify exactly at prayer time (within 1 min)
+    if (diffMinutes === 0) {
       let notifiedKey = `notified_${now.getDate()}_${key}`;
       if (!localStorage.getItem(notifiedKey)) {
         localStorage.setItem(notifiedKey, "true");
-        
         let title = `حان وقت أذكار ما بعد صلاة ${name}`;
         let body = "لا تنس قراءة أذكار الصلاة.";
         if (key === "Fajr") body = "حان وقت أذكار ما بعد صلاة الفجر وأذكار الصباح.";
         if (key === "Asr") body = "حان وقت أذكار ما بعد صلاة العصر وأذكار المساء.";
+        sendNotification(title, body);
+      }
+    }
+    
+    // 2. Reminder after 20 minutes if not finished
+    if (diffMinutes === 20) {
+      let reminderKey = `reminder_${now.getDate()}_${key}`;
+      if (!localStorage.getItem(reminderKey)) {
+        localStorage.setItem(reminderKey, "true");
         
-        if ("Notification" in window && Notification.permission === "granted") {
-          new Notification(title, { body: body });
+        let pending = [];
+        if (!isCategoryDone(2, azkat_salah)) pending.push("أذكار الصلاة");
+        
+        if (key === "Fajr" && !isCategoryDone(0, day_data)) pending.push("أذكار الصباح");
+        if (key === "Asr" && !isCategoryDone(1, night_data)) pending.push("أذكار المساء");
+        
+        if (pending.length > 0) {
+          sendNotification("تذكير بالأذكار 📿", `يبدو أنك لم تنتهِ من قراءة: ${pending.join(" و ")}. اغتنم الأجر!`);
         }
       }
     }
