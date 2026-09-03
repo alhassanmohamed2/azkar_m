@@ -93,53 +93,75 @@ themeToggleBtn.addEventListener("click", () => {
 });
 
 // Progress Tracking Methods
-function getProgressKey() {
-  const date = new Date();
-  return `azkar_progress_${date.getFullYear()}_${date.getMonth() + 1}_${date.getDate()}`;
+function getProgressKey(azkarIndex) {
+  const now = new Date();
+  
+  if (azkarIndex === 2 || azkarIndex === 3) {
+    const timingsStr = localStorage.getItem("prayer_timings");
+    if (!timingsStr) return `azkar_salah_${now.getFullYear()}_${now.getMonth()}_${now.getDate()}`;
+    
+    const timings = JSON.parse(timingsStr);
+    const prayerNames = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+    let lastPrayer = "Isha"; 
+    let prayerDate = now.getDate();
+    
+    for (let p of prayerNames) {
+      if (!timings[p]) continue;
+      let parts = timings[p].split(":");
+      let pTime = new Date();
+      pTime.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+      if (now >= pTime) lastPrayer = p;
+    }
+    
+    if (lastPrayer === "Isha" && now.getHours() < 12) {
+      prayerDate = new Date(now.getTime() - 24*60*60*1000).getDate();
+    }
+    return `azkar_salah_${now.getFullYear()}_${now.getMonth()}_${prayerDate}_${lastPrayer}`;
+  } 
+  else if (azkarIndex === 0) {
+    const shifted = new Date(now.getTime() - 4*60*60*1000); // Morning resets at 4 AM
+    return `azkar_morning_${shifted.getFullYear()}_${shifted.getMonth()}_${shifted.getDate()}`;
+  }
+  else {
+    const shifted = new Date(now.getTime() - 14*60*60*1000); // Evening resets at 2 PM (Asr)
+    return `azkar_evening_${shifted.getFullYear()}_${shifted.getMonth()}_${shifted.getDate()}`;
+  }
 }
 
-function loadProgress() {
-  const key = getProgressKey();
-  let progress = localStorage.getItem(key);
-  if (progress) {
-    return JSON.parse(progress);
-  }
-
-  // Clear old progress keys
+function clearOldProgress() {
+  const validKeys = [0, 1, 2, 3].map(getProgressKey);
   const keysToRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && k.startsWith("azkar_progress_") && k !== key) {
-      keysToRemove.push(k);
+    if (k && (k.startsWith("azkar_salah_") || k.startsWith("azkar_morning_") || k.startsWith("azkar_evening_") || k.startsWith("azkar_progress_"))) {
+      if (!validKeys.includes(k)) keysToRemove.push(k);
     }
   }
-  keysToRemove.forEach((k) => localStorage.removeItem(k));
+  keysToRemove.forEach(k => localStorage.removeItem(k));
+}
+clearOldProgress();
 
-  return {};
+function loadProgress(azkarIndex) {
+  const key = getProgressKey(azkarIndex);
+  let progress = localStorage.getItem(key);
+  return progress ? JSON.parse(progress) : {};
 }
 
 function saveProgress(azkarIndex, zikrId, remainingCount) {
-  const key = getProgressKey();
-  let progress = loadProgress();
-  if (!progress[azkarIndex]) {
-    progress[azkarIndex] = {};
-  }
-  progress[azkarIndex][zikrId] = remainingCount;
+  const key = getProgressKey(azkarIndex);
+  let progress = loadProgress(azkarIndex);
+  progress[zikrId] = remainingCount;
   localStorage.setItem(key, JSON.stringify(progress));
 }
 
 function getZakrProgress(azkarIndex, zikrId, defaultCount) {
-  let progress = loadProgress();
-  if (progress[azkarIndex] && progress[azkarIndex][zikrId] !== undefined) {
-    return progress[azkarIndex][zikrId];
-  }
-  return defaultCount;
+  let progress = loadProgress(azkarIndex);
+  return progress[zikrId] !== undefined ? progress[zikrId] : defaultCount;
 }
 
 function isZakrDone(azkarIndex, zikrId) {
-  let progress = loadProgress();
-  if (progress[azkarIndex] && progress[azkarIndex][zikrId] === true) return true;
-  return progress[azkarIndex] && progress[azkarIndex][zikrId] === 0;
+  let progress = loadProgress(azkarIndex);
+  return progress[zikrId] === true || progress[zikrId] === 0;
 }
 
 // Give each item a stable ID based on original position
@@ -353,8 +375,9 @@ async function fetchAndApplyTimings(latitude, longitude) {
     const adhanResponse = await fetch(url);
     if (!adhanResponse.ok) return;
     const adhanData = await adhanResponse.json();
-
     const timings = adhanData.data.timings;
+    localStorage.setItem("prayer_timings", JSON.stringify(timings));
+
     const fajrTime = timings.Fajr;
     const asrTime = timings.Asr;
 
@@ -440,3 +463,77 @@ window.addEventListener("click", (e) => {
     history_modal.classList.remove("show");
   }
 });
+
+// Notification System
+let notifyBtn = document.getElementById("toggle_notifications");
+let notifyIcon = notifyBtn.querySelector("i");
+let notificationsEnabled = localStorage.getItem("notificationsEnabled") === "true";
+
+function updateNotifyUI() {
+  if (notificationsEnabled) {
+    notifyIcon.className = "fa-solid fa-bell";
+    notifyIcon.style.color = "var(--primary)";
+  } else {
+    notifyIcon.className = "fa-solid fa-bell-slash";
+    notifyIcon.style.color = "inherit";
+  }
+}
+updateNotifyUI();
+
+notifyBtn.addEventListener("click", () => {
+  if (!notificationsEnabled) {
+    if ("Notification" in window) {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          notificationsEnabled = true;
+          localStorage.setItem("notificationsEnabled", "true");
+          updateNotifyUI();
+          new Notification("تم التفعيل", { body: "سيتم تنبيهك بأوقات الأذكار طالما المتصفح مفتوح أو يعمل في الخلفية." });
+        } else {
+          alert("الرجاء السماح بالإشعارات من إعدادات المتصفح.");
+        }
+      });
+    } else {
+      alert("متصفحك لا يدعم الإشعارات.");
+    }
+  } else {
+    notificationsEnabled = false;
+    localStorage.setItem("notificationsEnabled", "false");
+    updateNotifyUI();
+  }
+});
+
+setInterval(() => {
+  if (!notificationsEnabled) return;
+  const timingsStr = localStorage.getItem("prayer_timings");
+  if (!timingsStr) return;
+  
+  const timings = JSON.parse(timingsStr);
+  const now = new Date();
+  const prayerNames = { "Fajr": "الفجر", "Dhuhr": "الظهر", "Asr": "العصر", "Maghrib": "المغرب", "Isha": "العشاء" };
+  
+  for (let [key, name] of Object.entries(prayerNames)) {
+    if (!timings[key]) continue;
+    let parts = timings[key].split(":");
+    let pTime = new Date();
+    pTime.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+    
+    let diffMs = now.getTime() - pTime.getTime();
+    // Notify within the first minute of the prayer time
+    if (diffMs > 0 && diffMs < 60000) {
+      let notifiedKey = `notified_${now.getDate()}_${key}`;
+      if (!localStorage.getItem(notifiedKey)) {
+        localStorage.setItem(notifiedKey, "true");
+        
+        let title = `حان وقت أذكار ما بعد صلاة ${name}`;
+        let body = "لا تنس قراءة أذكار الصلاة.";
+        if (key === "Fajr") body = "حان وقت أذكار ما بعد صلاة الفجر وأذكار الصباح.";
+        if (key === "Asr") body = "حان وقت أذكار ما بعد صلاة العصر وأذكار المساء.";
+        
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification(title, { body: body });
+        }
+      }
+    }
+  }
+}, 30000);
