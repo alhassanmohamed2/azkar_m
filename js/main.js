@@ -547,8 +547,9 @@ if (savedFontSize) {
   fontSlider.value = savedFontSize;
   main_text.style.fontSize = savedFontSize + "px";
 } else {
-  // Default is 32px
-  main_text.style.fontSize = "32px";
+  // Default is 26px
+  main_text.style.fontSize = "26px";
+  fontSlider.value = "26";
 }
 
 fontSlider.addEventListener("input", (e) => {

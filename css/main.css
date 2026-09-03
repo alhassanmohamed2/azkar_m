@@ -185,7 +185,7 @@ main {
   background-color: var(--card-bg);
   width: 100%;
   max-width: 500px;
-  padding: 40px 30px;
+  padding: 30px 20px;
   border-radius: 24px;
   box-shadow: var(--shadow);
   text-align: center;
@@ -197,7 +197,7 @@ main {
 
 .main-text {
   font-family: 'Scheherazade New', serif;
-  font-size: 32px;
+  font-size: 26px;
   line-height: 1.9;
   font-weight: 700;
   margin-bottom: 20px;
