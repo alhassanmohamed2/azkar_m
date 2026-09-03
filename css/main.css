@@ -477,3 +477,23 @@ footer button {
     transform: none;
   }
 }
+
+/* Font Size Slider */
+.slider-container {
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.slider-container label {
+  font-size: 15px;
+}
+
+#font-size-slider {
+  width: 100%;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
