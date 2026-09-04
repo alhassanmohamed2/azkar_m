@@ -222,6 +222,9 @@ function renderZakr() {
   void main_text.offsetWidth; // trigger reflow
   main_text.classList.add("fade-in");
 
+  // Scroll to top for long Azkar
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
   main_text.innerHTML = data[counter_track]['zakr'];
   totle_ziker.innerHTML = data.length;
   // Render the new progress bar and update completed count
@@ -261,6 +264,17 @@ function choose_azkar(azkar_data, azkar_number) {
   currentAzkarIndex = azkar_number;
   counter_track = 0;
   renderZakr();
+  
+  // Highlight active menu item
+  const menuItems = [azkar_alsaba7, azkar_almsa2, azkar_alslah, azkar_altshhd];
+  menuItems.forEach(item => item.classList.remove("active-menu"));
+  if (menuItems[azkar_number]) menuItems[azkar_number].classList.add("active-menu");
+  
+  // Close menu
+  menu_active = false;
+  header.style.overflow = "hidden";
+  icon.classList.remove("active-icon");
+  ul_links.classList.remove("move-to-left");
 }
 
 function next_action() {
@@ -283,7 +297,7 @@ function count_action() {
   if (counter_button.innerHTML === "✔") {
     let allDone = data.every(item => isZakrDone(currentAzkarIndex, item.id));
     if (allDone) {
-      main_text.innerHTML = "تم الانتهاء، تقبل الله منا ومنكم صالح الأعمال.";
+      main_text.innerHTML = '<div class="completion-msg">✨ تم الانتهاء ✨<br><small>تقبل الله منا ومنكم صالح الأعمال</small></div>';
       times.innerHTML = "";
     } else {
       next_action();
@@ -302,7 +316,7 @@ function count_action() {
       
       let allDone = data.every(item => isZakrDone(currentAzkarIndex, item.id));
       if (allDone) {
-        main_text.innerHTML = "تم الانتهاء، تقبل الله منا ومنكم صالح الأعمال.";
+        main_text.innerHTML = '<div class="completion-msg">✨ تم الانتهاء ✨<br><small>تقبل الله منا ومنكم صالح الأعمال</small></div>';
         times.innerHTML = "";
         counter_button.innerHTML = "✔";
       } else {
@@ -315,16 +329,56 @@ function count_action() {
       }
     }, 300);
     
-  } else if (counter_button.innerHTML > 0) {
+  } else if (parseInt(counter_button.innerHTML) > 0) {
     counter_button.innerHTML--;
     saveProgress(currentAzkarIndex, data[counter_track].id, parseInt(counter_button.innerHTML));
+    // Haptic feedback
+    if (navigator.vibrate) navigator.vibrate(30);
   }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   box.addEventListener("click", chooseSide);
   fetchPrayerTimesAndUpdate(); // Fetch real prayer times on load
+  
+  // Clean old notification keys
+  const today = new Date().getDate();
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k && (k.startsWith("notified_") || k.startsWith("reminder_"))) {
+      const parts = k.split("_");
+      if (parts[1] && parseInt(parts[1]) !== today) {
+        localStorage.removeItem(k);
+      }
+    }
+  }
 });
+
+// Swipe gesture support for mobile
+let touchStartX = 0;
+let touchStartY = 0;
+box.addEventListener("touchstart", (e) => {
+  touchStartX = e.changedTouches[0].screenX;
+  touchStartY = e.changedTouches[0].screenY;
+}, { passive: true });
+
+box.addEventListener("touchend", (e) => {
+  let touchEndX = e.changedTouches[0].screenX;
+  let touchEndY = e.changedTouches[0].screenY;
+  let diffX = touchEndX - touchStartX;
+  let diffY = touchEndY - touchStartY;
+  
+  // Only trigger if horizontal swipe is dominant
+  if (Math.abs(diffX) > 50 && Math.abs(diffX) > Math.abs(diffY)) {
+    if (diffX > 0) {
+      // Swipe right → previous (RTL context)
+      next_action();
+    } else {
+      // Swipe left → next (RTL context)
+      back_action();
+    }
+  }
+}, { passive: true });
 
 function chooseSide(e) {
   const { clientX } = e;
@@ -432,9 +486,9 @@ function updateHistoryUI() {
     let total = allData[index].length;
     let doneCount = 0;
     
-    for (let i = 0; i < total; i++) {
-      if (isZakrDone(index, i)) doneCount++;
-    }
+    allData[index].forEach(item => {
+      if (isZakrDone(index, item.id)) doneCount++;
+    });
     
     const div = document.createElement("div");
     div.className = "stat-item";
@@ -676,7 +730,7 @@ clearNotifBtn.addEventListener("click", () => {
 });
 
 window.addEventListener("click", (e) => {
-  if (!notifDropdown.contains(e.target) && e.target !== inappBell) {
+  if (!notifDropdown.contains(e.target) && !inappBell.contains(e.target)) {
     notifDropdown.classList.remove("show");
   }
 });
