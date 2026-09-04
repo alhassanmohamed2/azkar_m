@@ -222,6 +222,9 @@ function renderZakr() {
   void main_text.offsetWidth; // trigger reflow
   main_text.classList.add("fade-in");
 
+  // Scroll to top for long Azkar
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
   main_text.innerHTML = data[counter_track]['zakr'];
   totle_ziker.innerHTML = data.length;
   // Render the new progress bar and update completed count
@@ -261,6 +264,17 @@ function choose_azkar(azkar_data, azkar_number) {
   currentAzkarIndex = azkar_number;
   counter_track = 0;
   renderZakr();
+  
+  // Highlight active menu item
+  const menuItems = [azkar_alsaba7, azkar_almsa2, azkar_alslah, azkar_altshhd];
+  menuItems.forEach(item => item.classList.remove("active-menu"));
+  if (menuItems[azkar_number]) menuItems[azkar_number].classList.add("active-menu");
+  
+  // Close menu
+  menu_active = false;
+  header.style.overflow = "hidden";
+  icon.classList.remove("active-icon");
+  ul_links.classList.remove("move-to-left");
 }
 
 function next_action() {
@@ -283,7 +297,7 @@ function count_action() {
   if (counter_button.innerHTML === "✔") {
     let allDone = data.every(item => isZakrDone(currentAzkarIndex, item.id));
     if (allDone) {
-      main_text.innerHTML = "تم الانتهاء، تقبل الله منا ومنكم صالح الأعمال.";
+      main_text.innerHTML = '<div class="completion-msg">✨ تم الانتهاء ✨<br><small>تقبل الله منا ومنكم صالح الأعمال</small></div>';
       times.innerHTML = "";
     } else {
       next_action();
@@ -302,7 +316,7 @@ function count_action() {
       
       let allDone = data.every(item => isZakrDone(currentAzkarIndex, item.id));
       if (allDone) {
-        main_text.innerHTML = "تم الانتهاء، تقبل الله منا ومنكم صالح الأعمال.";
+        main_text.innerHTML = '<div class="completion-msg">✨ تم الانتهاء ✨<br><small>تقبل الله منا ومنكم صالح الأعمال</small></div>';
         times.innerHTML = "";
         counter_button.innerHTML = "✔";
       } else {
@@ -315,16 +329,56 @@ function count_action() {
       }
     }, 300);
     
-  } else if (counter_button.innerHTML > 0) {
+  } else if (parseInt(counter_button.innerHTML) > 0) {
     counter_button.innerHTML--;
     saveProgress(currentAzkarIndex, data[counter_track].id, parseInt(counter_button.innerHTML));
+    // Haptic feedback
+    if (navigator.vibrate) navigator.vibrate(30);
   }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   box.addEventListener("click", chooseSide);
   fetchPrayerTimesAndUpdate(); // Fetch real prayer times on load
+  
+  // Clean old notification keys
+  const today = new Date().getDate();
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k && (k.startsWith("notified_") || k.startsWith("reminder_"))) {
+      const parts = k.split("_");
+      if (parts[1] && parseInt(parts[1]) !== today) {
+        localStorage.removeItem(k);
+      }
+    }
+  }
 });
+
+// Swipe gesture support for mobile
+let touchStartX = 0;
+let touchStartY = 0;
+box.addEventListener("touchstart", (e) => {
+  touchStartX = e.changedTouches[0].screenX;
+  touchStartY = e.changedTouches[0].screenY;
+}, { passive: true });
+
+box.addEventListener("touchend", (e) => {
+  let touchEndX = e.changedTouches[0].screenX;
+  let touchEndY = e.changedTouches[0].screenY;
+  let diffX = touchEndX - touchStartX;
+  let diffY = touchEndY - touchStartY;
+  
+  // Only trigger if horizontal swipe is dominant
+  if (Math.abs(diffX) > 50 && Math.abs(diffX) > Math.abs(diffY)) {
+    if (diffX > 0) {
+      // Swipe right → previous (RTL context)
+      next_action();
+    } else {
+      // Swipe left → next (RTL context)
+      back_action();
+    }
+  }
+}, { passive: true });
 
 function chooseSide(e) {
   const { clientX } = e;
@@ -432,9 +486,9 @@ function updateHistoryUI() {
     let total = allData[index].length;
     let doneCount = 0;
     
-    for (let i = 0; i < total; i++) {
-      if (isZakrDone(index, i)) doneCount++;
-    }
+    allData[index].forEach(item => {
+      if (isZakrDone(index, item.id)) doneCount++;
+    });
     
     const div = document.createElement("div");
     div.className = "stat-item";
@@ -480,6 +534,34 @@ function updateNotifyUI() {
 }
 updateNotifyUI();
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed', err));
+}
+
+function sendNotification(title, body) {
+  // Add to In-App Notification Center
+  if (typeof addInAppNotification === "function") {
+    addInAppNotification(title, body);
+  }
+
+  if ("Notification" in window && Notification.permission === "granted") {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(title, { body: body, icon: "assets/images/favicon.png", vibrate: [200, 100, 200] });
+      });
+    } else {
+      new Notification(title, { body: body, icon: "assets/images/favicon.png" });
+    }
+  }
+}
+
+function isCategoryDone(azkarIndex, dataArray) {
+  for (let i = 0; i < dataArray.length; i++) {
+    if (!isZakrDone(azkarIndex, i)) return false;
+  }
+  return true;
+}
+
 notifyBtn.addEventListener("click", () => {
   if (!notificationsEnabled) {
     if ("Notification" in window) {
@@ -488,7 +570,7 @@ notifyBtn.addEventListener("click", () => {
           notificationsEnabled = true;
           localStorage.setItem("notificationsEnabled", "true");
           updateNotifyUI();
-          new Notification("تم التفعيل", { body: "سيتم تنبيهك بأوقات الأذكار طالما المتصفح مفتوح أو يعمل في الخلفية." });
+          sendNotification("تم التفعيل", "سيتم تنبيهك بأوقات الأذكار طالما المتصفح مفتوح أو يعمل في الخلفية.");
         } else {
           alert("الرجاء السماح بالإشعارات من إعدادات المتصفح.");
         }
@@ -519,19 +601,35 @@ setInterval(() => {
     pTime.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
     
     let diffMs = now.getTime() - pTime.getTime();
-    // Notify within the first minute of the prayer time
-    if (diffMs > 0 && diffMs < 60000) {
+    let diffMinutes = Math.floor(diffMs / 60000);
+    
+    // 1. Notify exactly at prayer time (within 1 min)
+    if (diffMinutes === 0) {
       let notifiedKey = `notified_${now.getDate()}_${key}`;
       if (!localStorage.getItem(notifiedKey)) {
         localStorage.setItem(notifiedKey, "true");
-        
         let title = `حان وقت أذكار ما بعد صلاة ${name}`;
         let body = "لا تنس قراءة أذكار الصلاة.";
         if (key === "Fajr") body = "حان وقت أذكار ما بعد صلاة الفجر وأذكار الصباح.";
         if (key === "Asr") body = "حان وقت أذكار ما بعد صلاة العصر وأذكار المساء.";
+        sendNotification(title, body);
+      }
+    }
+    
+    // 2. Reminder after 20 minutes if not finished
+    if (diffMinutes === 20) {
+      let reminderKey = `reminder_${now.getDate()}_${key}`;
+      if (!localStorage.getItem(reminderKey)) {
+        localStorage.setItem(reminderKey, "true");
         
-        if ("Notification" in window && Notification.permission === "granted") {
-          new Notification(title, { body: body });
+        let pending = [];
+        if (!isCategoryDone(2, azkat_salah)) pending.push("أذكار الصلاة");
+        
+        if (key === "Fajr" && !isCategoryDone(0, day_data)) pending.push("أذكار الصباح");
+        if (key === "Asr" && !isCategoryDone(1, night_data)) pending.push("أذكار المساء");
+        
+        if (pending.length > 0) {
+          sendNotification("تذكير بالأذكار 📿", `يبدو أنك لم تنتهِ من قراءة: ${pending.join(" و ")}. اغتنم الأجر!`);
         }
       }
     }
@@ -557,3 +655,85 @@ fontSlider.addEventListener("input", (e) => {
   main_text.style.fontSize = newSize + "px";
   localStorage.setItem("azkar_font_size", newSize);
 });
+
+// In-App Notification Center Logic
+let inappBell = document.getElementById("inapp-bell");
+let notifDropdown = document.getElementById("notifications-dropdown");
+let notifList = document.getElementById("notifications-list");
+let unreadBadge = document.getElementById("unread-badge");
+let clearNotifBtn = document.getElementById("clear-notifications");
+
+function loadInAppNotifications() {
+  let notifs = localStorage.getItem("azkar_inapp_notifications");
+  return notifs ? JSON.parse(notifs) : [];
+}
+
+function saveInAppNotifications(notifs) {
+  localStorage.setItem("azkar_inapp_notifications", JSON.stringify(notifs));
+}
+
+function addInAppNotification(title, body) {
+  let notifs = loadInAppNotifications();
+  let timeStr = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+  notifs.unshift({ title, body, time: timeStr, read: false });
+  // Keep only last 20
+  if (notifs.length > 20) notifs.pop();
+  saveInAppNotifications(notifs);
+  renderInAppNotifications();
+}
+
+function renderInAppNotifications() {
+  let notifs = loadInAppNotifications();
+  notifList.innerHTML = "";
+  let unreadCount = 0;
+  
+  if (notifs.length === 0) {
+    notifList.innerHTML = '<div class="no-notifications">لا توجد إشعارات جديدة</div>';
+  } else {
+    notifs.forEach(n => {
+      if (!n.read) unreadCount++;
+      let div = document.createElement("div");
+      div.className = "notification-item";
+      div.innerHTML = `
+        <div class="notification-title">${n.title}</div>
+        <div class="notification-body">${n.body}</div>
+        <div class="notification-time">${n.time}</div>
+      `;
+      notifList.appendChild(div);
+    });
+  }
+  
+  if (unreadCount > 0) {
+    unreadBadge.classList.remove("hidden");
+    unreadBadge.innerText = unreadCount > 9 ? "+9" : unreadCount;
+  } else {
+    unreadBadge.classList.add("hidden");
+  }
+}
+
+inappBell.addEventListener("click", (e) => {
+  e.stopPropagation();
+  notifDropdown.classList.remove("hidden");
+  notifDropdown.classList.toggle("show");
+  
+  if (notifDropdown.classList.contains("show")) {
+    let notifs = loadInAppNotifications();
+    notifs.forEach(n => n.read = true);
+    saveInAppNotifications(notifs);
+    renderInAppNotifications();
+  }
+});
+
+clearNotifBtn.addEventListener("click", () => {
+  saveInAppNotifications([]);
+  renderInAppNotifications();
+});
+
+window.addEventListener("click", (e) => {
+  if (!notifDropdown.contains(e.target) && !inappBell.contains(e.target)) {
+    notifDropdown.classList.remove("show");
+  }
+});
+
+// Initialize rendering on load
+renderInAppNotifications();
