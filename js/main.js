@@ -383,19 +383,15 @@ function count_action() {
 
 document.addEventListener("DOMContentLoaded", () => {
   box.addEventListener("click", chooseSide);
-  fetchPrayerTimesAndUpdate(); // Fetch real prayer times on load
-  
-  // Clean old notification keys
-  const today = new Date().getDate();
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const k = localStorage.key(i);
-    if (k && (k.startsWith("notified_") || k.startsWith("reminder_"))) {
-      const parts = k.split("_");
-      if (parts[1] && parseInt(parts[1]) !== today) {
-        localStorage.removeItem(k);
-      }
+  fetchPrayerTimesAndUpdate().then(() => {
+    // Check if opened from notification
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('category')) {
+      choose_azkar_by_index(parseInt(urlParams.get('category')));
+      // Clean up URL without reloading
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }
+  });
 });
 
 // Swipe gesture support for mobile
@@ -590,34 +586,57 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register(swPath, { scope: swScope })
     .then(reg => console.log('SW registered:', reg.scope))
     .catch(err => console.log('SW registration failed:', err));
+
+  // Listen for messages from the service worker
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SWITCH_CATEGORY') {
+      if (typeof choose_azkar_by_index === "function") {
+        choose_azkar_by_index(event.data.category);
+      }
+    }
+  });
 }
 
-function sendNotification(title, body) {
+function sendNotification(title, body, targetCategory = null) {
   // Always add to In-App Notification Center
   if (typeof addInAppNotification === "function") {
-    addInAppNotification(title, body);
+    addInAppNotification(title, body, targetCategory);
   }
 
   // Try system notification
   if ("Notification" in window && Notification.permission === "granted") {
+    let targetUrl = location.href.split('?')[0];
+    if (targetCategory !== null) {
+      targetUrl += `?category=${targetCategory}`;
+    }
+
+    const options = {
+      body: body,
+      icon: "assets/images/favicon.png",
+      badge: "assets/images/favicon.png",
+      vibrate: [200, 100, 200],
+      tag: title, // Prevent duplicate notifications
+      renotify: true,
+      data: { url: targetUrl, category: targetCategory }
+    };
+
     // Try Service Worker first (required for Android)
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       navigator.serviceWorker.ready.then(reg => {
-        reg.showNotification(title, {
-          body: body,
-          icon: "assets/images/favicon.png",
-          badge: "assets/images/favicon.png",
-          vibrate: [200, 100, 200],
-          tag: title, // Prevent duplicate notifications
-          renotify: true
-        });
+        reg.showNotification(title, options);
       }).catch(() => {
         // Fallback to regular notification
-        new Notification(title, { body: body, icon: "assets/images/favicon.png" });
+        let n = new Notification(title, options);
+        if (targetCategory !== null) {
+          n.onclick = () => { window.focus(); choose_azkar_by_index(targetCategory); };
+        }
       });
     } else {
       // No SW controller, use regular Notification
-      new Notification(title, { body: body, icon: "assets/images/favicon.png" });
+      let n = new Notification(title, options);
+      if (targetCategory !== null) {
+        n.onclick = () => { window.focus(); choose_azkar_by_index(targetCategory); };
+      }
     }
   }
 }
@@ -659,12 +678,28 @@ notifyBtn.addEventListener("click", () => {
 
 // Prayer time notification checker - runs every 30 seconds
 setInterval(() => {
+  const now = new Date();
+  
+  // Daily Cleanup
+  const todayDateStr = now.toDateString();
+  let lastCleanup = localStorage.getItem("last_cleanup_date");
+  if (lastCleanup !== todayDateStr) {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith("notified_") || k.startsWith("reminder_"))) {
+        localStorage.removeItem(k);
+      }
+    }
+    localStorage.removeItem("azkar_inapp_notifications");
+    if (typeof renderInAppNotifications === "function") renderInAppNotifications();
+    localStorage.setItem("last_cleanup_date", todayDateStr);
+  }
+
   if (!notificationsEnabled) return;
   const timingsStr = localStorage.getItem("prayer_timings");
   if (!timingsStr) return;
   
   const timings = JSON.parse(timingsStr);
-  const now = new Date();
   const prayerNames = { "Fajr": "الفجر", "Dhuhr": "الظهر", "Asr": "العصر", "Maghrib": "المغرب", "Isha": "العشاء" };
   
   for (let [key, name] of Object.entries(prayerNames)) {
@@ -674,7 +709,7 @@ setInterval(() => {
     pTime.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
     
     let diffMs = now.getTime() - pTime.getTime();
-    let diffMinutes = diffMs / 60000;
+    let diffMinutes = Math.floor(diffMs / 60000);
     
     // 1. Notify at prayer time (within 0-2 min window to not miss it)
     if (diffMinutes >= 0 && diffMinutes < 2) {
@@ -683,26 +718,29 @@ setInterval(() => {
         localStorage.setItem(notifiedKey, "true");
         let title = `حان وقت أذكار ما بعد صلاة ${name}`;
         let body = "لا تنس قراءة أذكار الصلاة.";
-        if (key === "Fajr") body = "حان وقت أذكار ما بعد صلاة الفجر وأذكار الصباح.";
-        if (key === "Asr") body = "حان وقت أذكار ما بعد صلاة العصر وأذكار المساء.";
-        sendNotification(title, body);
+        let targetCat = 2; // Salah by default
+        if (key === "Fajr") { body = "حان وقت أذكار ما بعد صلاة الفجر وأذكار الصباح."; targetCat = 0; }
+        if (key === "Asr") { body = "حان وقت أذكار ما بعد صلاة العصر وأذكار المساء."; targetCat = 1; }
+        sendNotification(title, body, targetCat);
       }
     }
     
-    // 2. Reminder after 20 minutes if not finished (within 20-22 min window)
-    if (diffMinutes >= 20 && diffMinutes < 22) {
-      let reminderKey = `reminder_${now.getDate()}_${key}`;
+    // 2. Reminder every 30 minutes if not finished
+    if (diffMinutes >= 30) {
+      let intervals = Math.floor(diffMinutes / 30);
+      let reminderKey = `reminder_${now.getDate()}_${key}_${intervals}`;
       if (!localStorage.getItem(reminderKey)) {
         localStorage.setItem(reminderKey, "true");
         
         let pending = [];
-        if (!isCategoryDone(2, azkat_salah_full)) pending.push("أذكار الصلاة");
+        let targetCat = null;
+        if (!isCategoryDone(2, azkat_salah_full)) { pending.push("أذكار الصلاة"); targetCat = 2; }
         
-        if (key === "Fajr" && !isCategoryDone(0, day_data_full)) pending.push("أذكار الصباح");
-        if (key === "Asr" && !isCategoryDone(1, night_data_full)) pending.push("أذكار المساء");
+        if (key === "Fajr" && !isCategoryDone(0, day_data_full)) { pending.push("أذكار الصباح"); targetCat = 0; }
+        if (key === "Asr" && !isCategoryDone(1, night_data_full)) { pending.push("أذكار المساء"); targetCat = 1; }
         
         if (pending.length > 0) {
-          sendNotification("تذكير بالأذكار 📿", `يبدو أنك لم تنتهِ من قراءة: ${pending.join(" و ")}. اغتنم الأجر!`);
+          sendNotification("تذكير بالأذكار 📿", `تذكير: لم تنتهِ بعد من قراءة: ${pending.join(" و ")}. اغتنم الأجر!`, targetCat);
         }
       }
     }
@@ -745,10 +783,10 @@ function saveInAppNotifications(notifs) {
   localStorage.setItem("azkar_inapp_notifications", JSON.stringify(notifs));
 }
 
-function addInAppNotification(title, body) {
+function addInAppNotification(title, body, category = null) {
   let notifs = loadInAppNotifications();
   let timeStr = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-  notifs.unshift({ title, body, time: timeStr, read: false });
+  notifs.unshift({ title, body, time: timeStr, read: false, category });
   // Keep only last 20
   if (notifs.length > 20) notifs.pop();
   saveInAppNotifications(notifs);
@@ -767,6 +805,15 @@ function renderInAppNotifications() {
       if (!n.read) unreadCount++;
       let div = document.createElement("div");
       div.className = "notification-item";
+      if (n.category !== null && n.category !== undefined) {
+        div.style.cursor = "pointer";
+        div.onclick = () => {
+          if (typeof choose_azkar_by_index === "function") {
+            choose_azkar_by_index(n.category);
+          }
+          notifDropdown.classList.remove("show");
+        };
+      }
       div.innerHTML = `
         <div class="notification-title">${n.title}</div>
         <div class="notification-body">${n.body}</div>
@@ -810,3 +857,10 @@ window.addEventListener("click", (e) => {
 
 // Initialize rendering on load
 renderInAppNotifications();
+
+function choose_azkar_by_index(index) {
+  if (index === 0) choose_azkar(day_filtered, 0);
+  else if (index === 1) choose_azkar(night_filtered, 1);
+  else if (index === 2) choose_azkar(salah_filtered, 2);
+  else if (index === 3) choose_azkar(tashahd_filtered, 3);
+}
