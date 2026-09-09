@@ -625,3 +625,25 @@ footer button {
   color: var(--primary);
   border-right: 3px solid var(--primary);
 }
+
+/* Extra Azkar Toggle */
+.toggle-container {
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 15px;
+}
+.toggle-container label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.toggle-container input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
