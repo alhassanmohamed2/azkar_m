@@ -8,18 +8,28 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  
+  const targetUrl = event.notification.data ? event.notification.data.url : '/';
+  const category = event.notification.data ? event.notification.data.category : null;
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      if (clientList.length > 0) {
-        let client = clientList[0];
-        for (let i = 0; i < clientList.length; i++) {
-          if (clientList[i].focused) {
-            client = clientList[i];
-          }
+      let targetClient = null;
+      for (let client of clientList) {
+        // Find if app is already open
+        if (client.url.split('?')[0].includes('azkar_m') || client.url.split('?')[0] === targetUrl.split('?')[0]) {
+          targetClient = client;
+          break;
         }
-        return client.focus();
       }
-      return clients.openWindow("/");
+
+      if (targetClient) {
+        if (category !== null && category !== undefined) {
+          targetClient.postMessage({ type: 'SWITCH_CATEGORY', category: category });
+        }
+        return targetClient.focus();
+      }
+      return clients.openWindow(targetUrl);
     })
   );
 });
