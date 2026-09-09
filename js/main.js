@@ -384,18 +384,6 @@ function count_action() {
 document.addEventListener("DOMContentLoaded", () => {
   box.addEventListener("click", chooseSide);
   fetchPrayerTimesAndUpdate(); // Fetch real prayer times on load
-  
-  // Clean old notification keys
-  const today = new Date().getDate();
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const k = localStorage.key(i);
-    if (k && (k.startsWith("notified_") || k.startsWith("reminder_"))) {
-      const parts = k.split("_");
-      if (parts[1] && parseInt(parts[1]) !== today) {
-        localStorage.removeItem(k);
-      }
-    }
-  }
 });
 
 // Swipe gesture support for mobile
@@ -659,12 +647,28 @@ notifyBtn.addEventListener("click", () => {
 
 // Prayer time notification checker - runs every 30 seconds
 setInterval(() => {
+  const now = new Date();
+  
+  // Daily Cleanup
+  const todayDateStr = now.toDateString();
+  let lastCleanup = localStorage.getItem("last_cleanup_date");
+  if (lastCleanup !== todayDateStr) {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith("notified_") || k.startsWith("reminder_"))) {
+        localStorage.removeItem(k);
+      }
+    }
+    localStorage.removeItem("azkar_inapp_notifications");
+    if (typeof renderInAppNotifications === "function") renderInAppNotifications();
+    localStorage.setItem("last_cleanup_date", todayDateStr);
+  }
+
   if (!notificationsEnabled) return;
   const timingsStr = localStorage.getItem("prayer_timings");
   if (!timingsStr) return;
   
   const timings = JSON.parse(timingsStr);
-  const now = new Date();
   const prayerNames = { "Fajr": "الفجر", "Dhuhr": "الظهر", "Asr": "العصر", "Maghrib": "المغرب", "Isha": "العشاء" };
   
   for (let [key, name] of Object.entries(prayerNames)) {
@@ -674,7 +678,7 @@ setInterval(() => {
     pTime.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
     
     let diffMs = now.getTime() - pTime.getTime();
-    let diffMinutes = diffMs / 60000;
+    let diffMinutes = Math.floor(diffMs / 60000);
     
     // 1. Notify at prayer time (within 0-2 min window to not miss it)
     if (diffMinutes >= 0 && diffMinutes < 2) {
@@ -689,9 +693,10 @@ setInterval(() => {
       }
     }
     
-    // 2. Reminder after 20 minutes if not finished (within 20-22 min window)
-    if (diffMinutes >= 20 && diffMinutes < 22) {
-      let reminderKey = `reminder_${now.getDate()}_${key}`;
+    // 2. Reminder every 30 minutes if not finished
+    if (diffMinutes >= 30) {
+      let intervals = Math.floor(diffMinutes / 30);
+      let reminderKey = `reminder_${now.getDate()}_${key}_${intervals}`;
       if (!localStorage.getItem(reminderKey)) {
         localStorage.setItem(reminderKey, "true");
         
@@ -702,7 +707,7 @@ setInterval(() => {
         if (key === "Asr" && !isCategoryDone(1, night_data_full)) pending.push("أذكار المساء");
         
         if (pending.length > 0) {
-          sendNotification("تذكير بالأذكار 📿", `يبدو أنك لم تنتهِ من قراءة: ${pending.join(" و ")}. اغتنم الأجر!`);
+          sendNotification("تذكير بالأذكار 📿", `تذكير: لم تنتهِ بعد من قراءة: ${pending.join(" و ")}. اغتنم الأجر!`);
         }
       }
     }
