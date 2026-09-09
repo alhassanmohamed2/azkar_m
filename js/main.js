@@ -29,12 +29,10 @@ icon.addEventListener("click", function (e) {
   e.stopPropagation();
   if (!menu_active) {
     menu_active = true;
-    header.style.overflow = "visible";
     icon.classList.add("active-icon");
     ul_links.classList.add("move-to-left");
   } else {
     menu_active = false;
-    header.style.overflow = "hidden";
     icon.classList.remove("active-icon");
     ul_links.classList.remove("move-to-left");
   }
@@ -44,7 +42,6 @@ document.addEventListener("click", (e) => {
   if (!icon.contains(e.target) && !ul_links.contains(e.target)) {
     if (menu_active) {
       menu_active = false;
-      header.style.overflow = "hidden";
       icon.classList.remove("active-icon");
       ul_links.classList.remove("move-to-left");
     }
@@ -54,7 +51,6 @@ document.addEventListener("click", (e) => {
 document.onkeyup = function (e) {
   if (e.key === "Escape") {
     menu_active = false;
-    header.style.overflow = "hidden";
     icon.classList.remove("active-icon");
     ul_links.classList.remove("move-to-left");
   } else if (e.key === "ArrowLeft") {
@@ -316,7 +312,7 @@ function choose_azkar(azkar_data, azkar_number) {
   
   // Close menu
   menu_active = false;
-  header.style.overflow = "hidden";
+  header.style.overflow = "";
   icon.classList.remove("active-icon");
   ul_links.classList.remove("move-to-left");
 }
@@ -540,7 +536,7 @@ function updateHistoryUI() {
 show_history.addEventListener("click", () => {
   // Close menu if open
   menu_active = false;
-  header.style.overflow = "hidden";
+  header.style.overflow = "";
   icon.classList.remove("active-icon");
   ul_links.classList.remove("move-to-left");
   
